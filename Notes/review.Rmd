@@ -1,0 +1,126 @@
+---
+title: 'Pol Sci 200D Notes: Stats Refresher'
+author: 'Haotian (Barney) Chen'
+date: "January 10, 2025"
+output: 
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+\newcommand{\y}{\mathbf{y}}
+\newcommand{\Y}{\mathbf{Y}}
+\newcommand{\X}{\mathbf{X}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\V}{\mathbb{V}}
+\newcommand{\Cov}{\mathbb{Cov}}
+\newcommand{\independent}{\perp\!\!\!\perp}
+
+## OLS Refresher
+In the classical regression model, we have the following assumptions:
+
++ (A.1) **Linearity**: $\Y = \X \mathbb{\beta} + \epsilon$
++ (A.2) **Strict Exogeneity**: $\E[\epsilon | \X] = 0$. The explanatory variables are exogenous (uncorrelated with the error term). It implies: 
+  - (A.2.a) Weak Exogeneity: $\E[\X_i\epsilon_i] = 0$. The explanatory variable is orthogonal to the error term. 
+  - (A.2.b) Unconditional Mean: $\E[\epsilon_i] = 0$. The error term has zero mean.
++ (A.3) **Full Rank**: $\text{rank}(\X)=k$ (we need $\X'\X$ to be invertible). A violation is *perfect multicollinearity* when some explanatory variables are linearly dependent.
++ (A.4) Spherical Errors: $\V[\epsilon | \X] = \E[\epsilon\epsilon'|\X] = \sigma^2 I_n$. It implies:
+  - (A.4.a) **Homoskedasticity**: $\V[\epsilon_i | \X] = \sigma^2$. Error terms have constant variance. No heteroskedasticity. 
+  - (A.4.b) **No Autocorrelation of Errors**: $\Cov[\epsilon_i, \epsilon_j | \X] = \E[\epsilon_i \epsilon_j | \X] = 0$ for $i \neq j$. No serial correlation.
++ (A.5) **Normality**: $\epsilon | \X \sim N(0, \sigma^2I_n)$. The error terms are normally distributed.
+
+Under these assumptions, we can estimate the OLS estimator $\hat{\beta} = (\X'\X)^{-1}\X'Y$. Here are the properties of OLS Estimator: 
+
++ **Unbiasedness**: $\E[\hat{\beta} | \X] = \beta$. 
++ **Efficiency**: The Gauss–Markov theorem states that the OLS estimator is BLUE (Best Linear Unbiased Estimator). 
++ **Consistency**: $\hat{\beta} \xrightarrow{p} \beta$ as $n \rightarrow \infty$.
++ **Asymptotically Normality**: $\hat{\beta} \sim N(\beta, \sigma^2 (\X'\X)^{-1})$.
+
+## Mathematics Refresher
+This class assumes familiarity in probability theory and linear algebra. Check [Harvard's Math Prefresher](https://iqss.github.io/prefresher/) if you need a refresher. Below I provide a quick review.
+
++ **Prior Distribution**: the probability of the parameter $\theta$ before observing data, denoted as $\xi(\theta)$.
++ **Posterior Distribution**: the conditional distribution of $\theta$ given observed data $X_1, X_2, \ldots, X_n$, denoted as $\xi(\theta | x_1, \ldots, x_n)$.
++ **Likelihood Function**: $\xi(\theta | x_1, \ldots, x_n) \propto f_n(x_1, \ldots, x_n | \theta) \xi(\theta)$. Here the likelihood function is $L(\theta) = f_n(x_1, \ldots, x_n | \theta)$. 
++ Again: $\text{Posterior} \propto \text{Likelihood} \cdot \text{Prior}$
++ **Conjugate Families**: choosing a conjugate prior that the posterior is in same family as the prior. We discuss three conjugate families: Normal-Normal, Beta-Binomial, and Gamma-Poisson.
+  - Normal Prior, Normal Data: 
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+library(bayesrules)
+plot_normal_normal(mean = 3.8, sd = 1.12, sigma = 5.8, y_bar = 3.35, n = 8)
+```
+  - Beta Prior, Binomial Data: 
+```{r echo=FALSE}
+plot_beta_binomial(alpha = 3, beta = 13, y = 5, n = 10) 
+```
+  - Gamma Prior, Poisson Data: 
+```{r echo=FALSE}
+plot_gamma_poisson(shape = 10, rate = 2, sum_y = 11, n = 4)
+```
+
+## Programming Refresher
+We will use R programming language in this class and follow the [tidyverse coding style](https://style.tidyverse.org). We recommend RStudio but of course, you can pick your favorite IDE. You are expected to submit your problem sets and exams using Quarto -- check this [link](https://quarto.org/docs/faq/rmarkdown.html) for switching from RMarkdown to Quarto. For any output you produce for this class, make sure the tables (e.g., using `gt()` or `kable()`) and figures (using `ggplot`) are well-formatted and easy to read. 
+
+
+### Simulation
+Here is a quick review for Monte Carlo Simulation in R. 
+
+```{r message=FALSE, warning=FALSE, eval=FALSE}
+# common distributions (prefix r-; for density, prefix d-; for cumulative, prefix p-)
+rnorm() # Normal
+runif() # Uniform
+rbinom() # Binomial
+rpois() # Poisson
+rexp() # Exponential
+
+# apply family functions
+apply() 
+sapply()
+lapply()
+tapply()
+```
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+
+# random seeds for reproducibility
+set.seed(2025)
+
+# sample() function
+sample(x = 1:10, size = 6, replace = FALSE)
+sample(x = 1:10, size = 6, replace = TRUE)
+
+# replicate() function
+replicate(3, rnorm(2))
+
+# map family functions (from purrr)
+modtwo <- function(.x) {
+  return(.x %% 2)
+}
+
+map(c(1, 8, 13, 20), modtwo) # apply modtwo() to each element in the vector
+
+map_df(c(1, 8, 13, 20), function(.x) {
+  return(data.frame(number = .x, 
+                    mod2 = modtwo(.x)))
+}) # apply modtwo() to each element in the vector and return a data frame
+
+# simulate a simple dataset using function()
+simulate_lm <- function(n = 100, beta0 = 2, beta1 = 3) {
+  x <- rnorm(n)
+  y <- beta0 + beta1 * x + rnorm(n)
+  return(data.frame(x = x, y = y))
+}
+
+data <- simulate_lm(100, 2, 3)
+
+ggplot(data, aes(x = x, y = y)) + 
+  geom_point() + 
+  geom_smooth(method = "lm")
+```
+
