@@ -1,9 +1,8 @@
 ---
-title: 'Pol Sci 200D Notes: Stats Refresher'
+title: 'Pol Sci 200D Notes: Refresher'
 author: 'Haotian (Barney) Chen'
 date: "January 10, 2025"
-output: 
-  html_document
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
