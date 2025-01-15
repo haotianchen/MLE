@@ -1,0 +1,36 @@
+---
+title: "Pol Sci 200D Notes: Logistic and Probit Regressions"
+author: "Barney Chen"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, fig.align='center')
+```
+
+# Maximum Likelihood Estimation
+
+You probably enter this course with previous experience of running `glm()` for your research or using logistic regression in a machine learning prediction/classification setting. OLS is intuitive -- you aim to minimize the sum of squared errors. MLE, on the other hand, seeks to maximize the likelihood (or log-likelihood). Why are they not the same??
+
+Consider a statement: 
+
+> "Least Square Estimation is same as Maximum Likelihood Estimation under a Gaussian model." 
+
+Is this statement true? Yes. The log-likelihood is $-\frac{n}{2} \log(2\pi \sigma^2) -\frac{1}{2\sigma^2} \sum_{i=1}^{n} (y_i - \beta_i x_i)^2$. Under homoskedasticity, maximizing it is equivalent to minimizing the sum of squared errors, $\sum_{i=1}^{n} (y_i - \beta_i x_i)^2$.
+
+Let's go back to the real-world situation. If the outcome variable is binary, using OLS violates the homoskedasticity and normality assumptions (of the error terms), and worst of all, the predicted values can be outside the range of $[0,1]$. 
+
+## Properties of Maximum Likelihood Estimators
+
+- Unbiasedness: MLE is only asymptotically unbiased. 
+- Efficiency: MLE is asymptotically (uniformly) minimum variance unbiased estimator (MVUE). I will not bother you with the definition of Cramer-Rao Lower Bound (CRLB) for the proof, but if you are interested, check any canonical statistics textbook on GLM. 
+- Consistency: MLE of i.i.d. observations is consistent. 
+- Asymptotic Normality: $\sqrt{n}(\hat{\theta} - \theta) \xrightarrow{d} N(0, \frac{1}{I(\theta)})$, where $I(\theta)$ is the Fisher Information.
+
+
+# Logistic Regression 
+
