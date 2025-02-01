@@ -1,5 +1,5 @@
 ---
-title: "Pol Sci 200D Notes: Logistic and Probit Regressions"
+title: "Pol Sci 200D Notes: Logit and Probit Models"
 author: "Barney Chen"
 date: "2025-01-17"
 output: html_document
@@ -10,6 +10,8 @@ output: html_document
 \newcommand{\logit}{{\rm logit}}
 \newcommand{\var}{{\rm Var}}
 \newcommand{\cov}{{\rm Cov}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\V}{\mathbb{V}}
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, fig.align = 'center')
@@ -24,7 +26,11 @@ You observe some data ($x_1, \ldots, x_n$, or $\X$), you assume a distribution g
 - We usually take the log of the likelihood to make the math easier: $\ln L(\theta) = \sum_{i=1}^{n} \ln f(x_i | \theta)$.
 - We take the first derivative of the log-likelihood with respect to $\theta$ and set it to zero (first-order condition): solve $\frac{\partial \ln L(\theta)}{\partial \theta} = 0$.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(estimatr)
+library(gt)
+
 set.seed(2025)
 
 # generate some data
@@ -54,7 +60,7 @@ sqrt(diag(solve(res$hessian)))
 
 
 ## MLE versus OLS
-You probably enter this course with previous experience of running `glm()` for your research or using logistic regression in a machine learning prediction/classification setting. OLS is intuitive -- you aim to minimize the sum of squared errors. MLE, on the other hand, seeks to maximize the likelihood (or log-likelihood). Why are they not the same?
+You probably enter this course with previous experience of running `glm()` for your research or using logistic regression in a machine learning prediction/classification setting. OLS is intuitive -- you aim to minimize the sum of squared errors. MLE, on the other hand, seeks to maximize the likelihood (or log-likelihood). Are they the same?
 
 Consider a statement: 
 
@@ -62,14 +68,134 @@ Consider a statement:
 
 Is this statement true? Yes. From lecture, we know the log-likelihood is $-\frac{n}{2} \log(2\pi \sigma^2) -\frac{1}{2\sigma^2} \sum_{i=1}^{n} (y_i - \beta_i x_i)^2$. Maximizing it is equivalent to minimizing the sum of squared errors, $\sum_{i=1}^{n} (y_i - \beta_i x_i)^2$.
 
-Let's go back to the real-world situation. If the outcome variable is binary, using OLS violates the homoskedasticity and normality assumptions (of the error terms), and worst of all, the predicted values can be outside the range of $[0,1]$. 
+To sum it up, why do we use MLE? Let's go back to the real-world situation --- if the outcome variable is binary (cannot be assumed to be normally distributed), using OLS violates the homoskedasticity and normality assumptions (of the error terms), and worst of all, the predicted values can be outside the range of $[0,1]$. 
 
 ## Properties of Maximum Likelihood Estimators
 
 - Unbiasedness: MLE is only asymptotically unbiased. 
-- Efficiency: MLE is asymptotically (uniformly) minimum variance unbiased estimator (MVUE). I will not bother you with the definition of Cramer-Rao Lower Bound (CRLB) for the proof, but if you are interested, check any canonical statistics textbook on GLM. 
+- Efficiency: Asymptotically efficient. MLE is called asymptotically (uniformly) minimum variance unbiased estimator (MVUE). I will not bother you with the definition of Cramer-Rao Lower Bound (CRLB) for the proof, but if you are interested, check any canonical statistics textbook on GLM. 
 - Consistency: MLE of i.i.d. observations is consistent. 
 - Asymptotic Normality: $\sqrt{n}(\hat{\theta} - \theta) \xrightarrow{d} N(0, \frac{1}{I(\theta)})$, where $I(\theta)$ is the Fisher Information.
 
-## Logistic Regression 
+-----
+
+# Generalized Linear Model
+On a higher level, most models we discussed in this course belong to Generalized Linear Models (GLM). It is called GLM because it generalizes the linear model. To show you this, a GLM has three components: 
+
+  - **Random (Stochastic) Component**: The outcome variable $Y_i$'s are independent and follow a distribution from the **exponential family**: 
+    + That means, the density function of $Y_i$ follows the form: $f(y_i ; \theta_i, \phi) = \exp\left(\frac{y_i \theta_i - b(\theta_i)}{a(\phi)} + c(y_i; \phi)\right)$. This includes many common distributions: normal, binomial, Poisson, exponential, gamma, etc. 
+  - **Systematic Component**: A linear predictor $\eta = \beta_0 + \beta_1 x_1 + \ldots + \beta_k x_k = \X^T\beta$.
+  - **Link Function**: The relationship between $\E[Y]$ and the linear predictor $\eta$ is $\eta = g(\E[Y])$, and $g(\cdot)$ is called the link function. The difference between logit and probit models is the link function.
+
+## Logit  
+
+Suppose an outcome has the probability $p$ of success (and $1-p$ of not success), we assume $Y_i$ follows a binomial distribution. 
+
+- The **odds** of this outcome is $\frac{p}{1-p}$, and we can rewrite the probability $p$ as $\frac{\frac{p}{1-p}}{1 + \frac{p}{1-p}}$. 
+- One useful definition is the **odds ratio (OR)**, which is simply the ratio of two odds: $\frac{\frac{p_1}{1-p_1}}{\frac{p_2}{1-p_2}}$.
+- The **log-odds** is then $\log\left(\frac{p}{1-p}\right)$. In R, we can use `qlogis` to get the logit link. 
+
+```{r}
+ggplot(data.frame(x = c(0, 1)), aes(x = x)) +
+  stat_function(fun = qlogis, geom = "line") +
+  labs(title = "log-odds of a given probabillity", x = "p", y = "qlogis(p)")
+```
+
+Given log-odds ($z$), we can get the probability by taking the inverse of the logit function: $\frac{1}{1 + e^{-z}} = \frac{e^z}{1 + e^z}$. In R, we can use `plogis` to get the inverse of logit ("logistic" function ).
+
+```{r}
+ggplot(data.frame(x = c(-10, 10)), aes(x = x)) +
+  stat_function(fun = plogis, geom = "line") +
+  labs(title = "probability for a given log-odds", x = "z", y = "plogis(z)")
+
+# you can write your own logistic function
+sigmoid <- function(x) 1/(1 + exp(-x))
+```
+
+Now, in the logistics regression, we model the probability $p$ of $Y=1$ with: $$\logit(p) = \log\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 x_1 + \ldots + \beta_k x_k$$
+
+The link function $g(\cdot)$ is logit, and the logit link ensures linearity. 
+
+### Example: Titanic Survivors
+The hardest part of logistic regression is the interpretation of the coefficients. The intercept $\beta_0$ is the log-odds of the event when all predictors are zero or at the reference level. In this case, $e^{\beta_0}$ is the corresponding odds, and $\frac{1}{1 + e^{-\beta_0}} = \frac{e^{\beta_0}}{1+e^{\beta_0}}$ is the corresponding probability. But it is **tricky** to interpret the coefficients of the explanatory variables. Let's consider an example. Suppose we want to explore what factors impact the survival of passengers on the Titanic using the `titanic` dataset. 
+
+```{r}
+library(titanic)
+library(ggeffects)
+data("titanic_train")
+
+titanic <- titanic_train %>% select(PassengerId, Survived, Sex, Age) %>% drop_na() %>% 
+  mutate(Sex = as.factor(Sex))
+head(titanic)
+
+# logit model
+logit <- glm(Survived ~ Sex + Age, family = binomial(link = "logit"), data = titanic)
+summary(logit)
+```
+
+One may interpret the coefficient for `Age` as: per one unit increase in age (holding gender at the observed value), the **log-odds** of survival decreases by 0.0054. This is not useful and no one uses it. A slightly better interpretation is to transform the coefficient to **odds ratio**: $e^{\beta_i}$. So, the odds ratio $e^{-0.0054} = 0.995$ can be interpreted as: one unit increase in age decreases the odds of survival by 0.5\% (from $1-0.995$), or 0.995 times less likely to survive. The coefficient for `Sexmale` can translate to an odds ratio of $e^{-2.47}=0.08$ and interpreted in a similar way. Overall, the interpretation of the coefficients so far is not very intuitive, and we care more about the sign. 
+
+```{r}
+# predicted probabilities, 20 versus 40 years old
+predict(logit, newdata = data.frame("Age" = c(20, 40), "Sex" = c("male", "female")), type = "response")
+
+# nice plot to show the predicted probabilities
+plot(ggpredict(logit, terms = c("Age [all]", "Sex")))
+```
+
+
+## Probit
+
+The difference between logit and probit models is the link function. The **probit link** is the inverse of the standard normal distribution function. We have: $$P(Y=1) = \Phi(\beta_0 + \beta_1 x_1 + \ldots + \beta_k x_k) \Rightarrow \Phi^{-1}(P(Y=1)) = \beta_0 + \beta_1 x_1 + \ldots + \beta_k x_k$$
+
+```{r}
+ggplot(data.frame(x = c(-5, 5)), aes(x = x)) +
+  stat_function(fun = pnorm, geom = "line") +
+  labs(x = "Xb", y = "p(Y=1)")
+```
+
+From the equation above, we can see that the coefficients should be interpreted as **changes in the z-score**. This is not very intuitive! 
+
+```{r}
+# probit model
+probit <- glm(Survived ~ Sex + Age, family = binomial(link = "probit"), data = titanic)
+summary(probit)
+```
+
+
+## Marginal Effects
+Another way to interpret the coefficients is to calculate the **marginal effects**. The odds ratio or z-score does not reveal much about the **magnitude**. The marginal effects capture difference in the **predicted probability** of the outcome, which depends on the predictors. The most commonly used one is the **Average Marginal Effects (AME)**, which reflects the average of the individual marginal effects. Do not confuse this with the **Marginal Effects at the Means (MEM)**, which is the marginal effect at the mean predictors. This is a helpful  [link](https://clas.ucdenver.edu/marcelo-perraillon/sites/default/files/attached-files/perraillon_marginal_effects_lecture_lisbon.pdf) to learn more about the marginal effects.
+
+```{r}
+library(margins)
+margins(logit) # AME
+```
+
+How should we interpret the coefficients? For example for `Age`, it means holding `Gender` at the observed value, on average, a one unit increase in age is associated with a 0.0009 decrease in the probability (\%0.09 less likely) of survival. 
+
+Let's now compare the coefficients from all these models.
+
+```{r message=FALSE, warning=FALSE}
+# linear probability model
+lpm <- lm_robust(Survived ~ Sex + Age, data = titanic)
+
+# get the estimates together
+tbl <- bind_rows(
+  broom::tidy(lpm) %>% mutate(Model = "LPM"),
+  broom::tidy(logit) %>% mutate(Model = "Logit_raw"),
+  broom::tidy(margins(logit)) %>% mutate(Model = "Logit_AME"),
+  broom::tidy(probit) %>% mutate(Model = "Probit_raw"), 
+  broom::tidy(margins(probit)) %>% mutate(Model = "Probit_AME")) %>% 
+  select(Model, term, estimate, std.error) %>% 
+  filter(term %in% c("Sexmale", "Age")) %>% 
+  arrange(term) %>%
+  mutate(estimate = round(estimate, 4), std.error = round(std.error, 4)) %>% 
+  gt() %>% 
+  cols_label(Model = "Model", term = "Variable", estimate = "Estimate")
+
+tbl
+```
+
+- The logit coefficient is roughly the probit coefficient times 1.6 (from $\pi^2/6$). 
+- The average marginal effects coefficients are almost identical for logit and probit models, and are identical to the coefficients from linear probability model. 
 
